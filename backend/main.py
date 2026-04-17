@@ -2,8 +2,19 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import yfinance as yf
 from pydantic import BaseModel
+from typing import List
+from datetime import datetime
+from .finance_utils import xirr 
 
 app = FastAPI()
+
+class Transaction(BaseModel):
+    date: str
+    amount: float
+
+class AnalysisRequest(BaseModel):
+    transactions: List[Transaction]
+    current_value: float
 
 # Enable CORS for Vite dev server
 app.add_middleware(
@@ -13,6 +24,34 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.post("/api/analyze")
+def analyze_portfolio(req: AnalysisRequest):
+    try:
+        if not req.transactions:
+            return {"xirr": 0}
+            
+        cash_flows = []
+        dates = []
+        
+        # Ensure all dates are timezone-naive to avoid subtraction errors
+        for tx in req.transactions:
+            # Outflow is negative
+            cash_flows.append(-float(tx.amount))
+            dates.append(datetime.strptime(tx.date, '%Y-%m-%d'))
+            
+        # Add final terminal value using today's date (naive)
+        cash_flows.append(float(req.current_value))
+        dates.append(datetime.now().replace(tzinfo=None))
+        
+        # Calculate XIRR using our custom engine
+        personal_xirr = xirr(cash_flows, dates)
+        return {"xirr": personal_xirr * 100}
+        
+    except Exception as e:
+        print(f"XIRR Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/history/{ticker}")
 def get_historical_data(ticker: str):

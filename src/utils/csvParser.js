@@ -46,7 +46,7 @@ export function parseFinanceCSV(file, onComplete, onError) {
           const mm = String(d.getMonth() + 1).padStart(2, '0');
           const dd = String(d.getDate()).padStart(2, '0');
           normalizedDate = `${yyyy}-${mm}-${dd}`;
-        } catch (e) {
+        } catch {
           continue;
         }
 

@@ -1,43 +1,40 @@
 import { useEffect, useRef } from 'react';
 import { createChart, AreaSeries } from 'lightweight-charts';
+import { createSeriesMarkers } from 'lightweight-charts';
 
-export function ChartWrapper({ data, onChartClick, transactions }) {
+export function ChartWrapper({ data, onChartClick, transactions, averagePrice }) {
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
-  const dashedLinesRef = useRef(null);
+  const avgLineRef = useRef(null);
+  const markersRef = useRef(null);
 
+  const clickHandlerRef = useRef(onChartClick);
+
+  useEffect(() => {
+    clickHandlerRef.current = onChartClick;
+  }, [onChartClick]);
+
+
+
+  // INIT CHART
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    // Create Chart
     const chart = createChart(chartContainerRef.current, {
       layout: {
         background: { type: 'solid', color: 'transparent' },
-        textColor: '#9ca3af', // slate-400
+        textColor: '#9ca3af',
       },
       grid: {
-        vertLines: { color: '#1e293b' }, // slate-800
+        vertLines: { color: '#1e293b' },
         horzLines: { color: '#1e293b' },
       },
       crosshair: {
         mode: 0,
-        vertLine: {
-          color: 'rgba(59, 130, 246, 0.5)',
-          width: 1,
-          style: 2, // Dashed
-          labelBackgroundColor: '#3b82f6',
-        },
-        horzLine: {
-          color: 'rgba(59, 130, 246, 0.5)',
-          width: 1,
-          style: 2, // Dashed
-          labelBackgroundColor: '#3b82f6',
-        },
       },
       timeScale: {
-        borderColor: '#334155', // slate-700
-        timeVisible: true,
+        borderColor: '#334155',
       },
       rightPriceScale: {
         borderColor: '#334155',
@@ -45,88 +42,113 @@ export function ChartWrapper({ data, onChartClick, transactions }) {
       autoSize: true,
     });
 
-    chartRef.current = chart;
-
-    // Add Area Series
-    const areaSeries = chart.addSeries(AreaSeries, {
+    const series = chart.addSeries(AreaSeries, {
       topColor: 'rgba(59, 130, 246, 0.4)',
       bottomColor: 'rgba(59, 130, 246, 0.0)',
       lineColor: '#3b82f6',
       lineWidth: 2,
     });
 
-    seriesRef.current = areaSeries;
+    // CLICK HANDLER
+    chart.subscribeClick((param) => {
+      if (!param.point || !param.time || !clickHandlerRef.current) return;
 
-    // Add separate series for dashed vertical lines
-    const dashedLines = chart.addSeries(AreaSeries, {
-      lineColor: 'rgba(59, 130, 246, 0.5)',
-      lineWidth: 1,
-      lineStyle: 2, // Dashed
-      visible: true,
-      priceLineVisible: false,
-      lastValueVisible: false,
-      crosshairMarkerVisible: false,
+      const price = param.seriesData.get(series)?.value;
+      if (price) {
+        clickHandlerRef.current(param.time, price);
+      }
     });
 
-    dashedLinesRef.current = dashedLines;
+    chartRef.current = chart;
+    seriesRef.current = series;
 
-    areaSeries.setData(data);
-    chart.timeScale().fitContent();
-
-    // Setup Click Subscription
-    const handleClick = (param) => {
-      if (!param.point || !param.time) return;
-      const price = param.seriesData.get(areaSeries)?.value || param.seriesData.get(areaSeries)?.close;
-      if (price) {
-        onChartClick(param.time, price);
-      }
-    };
-
-    chart.subscribeClick(handleClick);
-
-    // Cleanup
     return () => {
-      chart.unsubscribeClick(handleClick);
       chart.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
     };
-  }, [data, onChartClick]);
+  }, []);
 
-  // Handle Markers
+  // SET DATA (IMPORTANT FIX: use YYYY-MM-DD)
   useEffect(() => {
-    if (!seriesRef.current || !transactions) return;
+    if (!seriesRef.current || !data) return;
 
-    try {
-      const chartMarkers = transactions.map(tx => {
-        // Skip if date is missing
-        if (!tx.date) return null;
+    const formattedData = data.map(d => ({
+      time: d.time, // MUST be "YYYY-MM-DD"
+      value: d.value || d.close
+    }));
 
-        // Format the date label for the marker text (e.g., "Oct 12")
-        const [y, m, d] = tx.date.split('-');
-        const date = new Date(y, parseInt(m) - 1, d);
-        const shortDate = date.toLocaleDateString('default', { month: 'short', day: 'numeric' });
+    seriesRef.current.setData(formattedData);
+    chartRef.current?.timeScale().fitContent();
+  }, [data]);
+
+  useEffect(() => {
+    if (!seriesRef.current || !data?.length || !transactions) return;
+
+    // Wait one tick to ensure chart is fully ready
+    const timeout = setTimeout(() => {
+
+      if (!transactions.length) {
+        if (markersRef.current) {
+          markersRef.current.setMarkers([]);
+        }
+        return;
+      }
+
+      const markers = transactions.map((tx, idx) => {
+        const normalizedDate = new Date(tx.date).toISOString().split('T')[0];
 
         return {
-          time: tx.date,
+          id: tx.id || `tx-${idx}`,
+          time: normalizedDate,
           position: 'inBar',
-          color: '#3b82f6', // blue-500
+          color: 'red',
           shape: 'circle',
-          size: 1.5,
-          text: `₹${Math.round(tx.amount)} (${shortDate})`,
+          size: 1,
+          text: `₹${Math.round(tx.amount)}`
         };
-      }).filter(Boolean);
+      });
 
-      seriesRef.current.setMarkers(chartMarkers);
-    } catch (err) {
-      console.error("Error setting markers:", err);
+      if (!markersRef.current) {
+        markersRef.current = createSeriesMarkers(seriesRef.current, markers);
+      } else {
+        markersRef.current.setMarkers(markers);
+      }
+
+    }, 0); // micro-delay fixes race condition
+
+    return () => clearTimeout(timeout);
+
+  }, [transactions, data]);
+
+
+
+
+
+  // AVG LINE
+  useEffect(() => {
+    if (!seriesRef.current) return;
+
+    if (avgLineRef.current) {
+      seriesRef.current.removePriceLine(avgLineRef.current);
+      avgLineRef.current = null;
     }
-  }, [transactions]);
+
+    if (averagePrice && averagePrice > 0) {
+      avgLineRef.current = seriesRef.current.createPriceLine({
+        price: averagePrice,
+        color: '#fbbf24',
+        lineWidth: 2,
+        lineStyle: 2,
+        title: 'AVG COST',
+      });
+    }
+  }, [averagePrice]);
 
   return (
-    <div className="w-full h-full min-h-[400px] flex items-stretch">
-      <div
-        ref={chartContainerRef}
-        className="w-full h-full flex-grow relative"
-      />
+    <div className="w-full h-full min-h-[400px] relative">
+      <div ref={chartContainerRef} className="w-full h-full" />
     </div>
   );
 }
+

@@ -113,7 +113,10 @@ function App() {
     };
   }, [chartData]);
 
-  const { transactions, addTransaction, deleteTransaction, clearTransactions, metrics } = usePortfolio(ticker, currentPrice);
+  const { 
+    transactions, addTransaction, deleteTransaction, 
+    clearTransactions, applyStepStrategy, metrics 
+  } = usePortfolio(ticker, currentPrice, chartData);
 
   const handleChartClick = useCallback((timeStr, price) => {
     addTransaction(timeStr, price, defaultAmount);
@@ -248,19 +251,20 @@ function App() {
                <p className="font-semibold">{errorMsg}</p>
              </div>
           ) : chartData.length > 0 ? (
-             <ChartWrapper data={chartData} onChartClick={handleChartClick} transactions={transactions} />
+             <ChartWrapper data={chartData} onChartClick={handleChartClick} transactions={transactions} averagePrice={metrics.averageBuyPrice} />
           ) : (
              <p className="text-slate-500 font-semibold">No data available.</p>
           )}
         </div>
       </div>
 
-      <div className="w-[400px] shrink-0 border-l border-slate-800 shadow-2xl relative z-10">
+      <div className="w-[400px] h-full shrink-0 border-l border-slate-800 shadow-2xl relative z-10 overflow-hidden">
         <Sidebar 
           metrics={metrics}
           transactions={transactions}
           onDelete={deleteTransaction}
           onClearAll={clearTransactions}
+          onStepStrategy={applyStepStrategy}
           defaultAmount={defaultAmount}
           setDefaultAmount={setDefaultAmount}
         />

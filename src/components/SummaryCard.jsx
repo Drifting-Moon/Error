@@ -1,10 +1,10 @@
 import { TrendingUp, TrendingDown, IndianRupee, Briefcase, Clock, Hourglass, Percent, Box } from 'lucide-react';
 
 export function SummaryCard({ metrics }) {
-  const { 
-    totalInvested, currentValue, pnl, returnPct, 
-    firstInvestmentDate, durationDetailed, lastBuyDelta, 
-    averageBuyPrice, dcaOutperformance, priceDropPct, cagr, xirr 
+  const {
+    totalInvested, currentValue, pnl, returnPct,
+    firstInvestmentDate, durationDetailed, lastBuyDelta,
+    averageBuyPrice, dcaOutperformance, priceDropPct, cagr, xirr
   } = metrics;
 
   const isPositive = pnl >= 0;
@@ -89,12 +89,12 @@ export function SummaryCard({ metrics }) {
           {dcaOutperformance !== null && (
             <div className={`p-2.5 rounded-xl border ${dcaOutperformance >= 0 ? 'border-blue-500/10 bg-blue-500/5' : 'border-orange-500/10 bg-orange-500/5'}`}>
               <div className="flex items-center justify-between mb-1">
-                 <span className="text-[9px] uppercase font-black text-slate-500 tracking-tighter flex items-center gap-1">
+                <span className="text-[9px] uppercase font-black text-slate-500 tracking-tighter flex items-center gap-1">
                   <Box size={10} className="text-blue-500" /> Strategy Analysis
-                 </span>
-                 <span className={`text-[10px] font-black ${dcaOutperformance >= 0 ? 'text-blue-400' : 'text-orange-400'}`}>
-                   {dcaOutperformance >= 0 ? 'Outperforming' : 'Lagging'} vs DCA
-                 </span>
+                </span>
+                <span className={`text-[10px] font-black ${dcaOutperformance >= 0 ? 'text-blue-400' : 'text-orange-400'}`}>
+                  {dcaOutperformance >= 0 ? 'Outperforming' : 'Lagging'} vs DCA
+                </span>
               </div>
               <p className="text-[10px] text-slate-400 leading-tight">
                 Your manual timing is <span className="text-slate-200 font-bold">{Math.abs(dcaOutperformance).toFixed(1)}%</span> {dcaOutperformance >= 0 ? 'better' : 'worse'} than a simple monthly buy.

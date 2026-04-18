@@ -60,6 +60,10 @@ def get_historical_data(ticker: str):
         stock = yf.Ticker(ticker)
         df = stock.history(period="max")
         
+        # Drop rows with NaN values in core price columns to prevent JSON serialization errors
+        df = df.dropna(subset=['Open', 'High', 'Low', 'Close'])
+
+        
         if df.empty:
             raise HTTPException(status_code=404, detail=f"No data found for ticker '{ticker}'")
             
